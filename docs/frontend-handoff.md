@@ -18,8 +18,10 @@ npm run preview   # 预览构建产物
 
 | 变量 | 取值 | 说明 |
 | --- | --- | --- |
-| `VITE_API_MODE` | `mock`（默认）/ `http` | mock = 演示模式，回放脚本、不分析真实画面；http = 调尹的真实服务 |
-| `VITE_API_BASE_URL` | 如 `https://api.example.com` | 尹提供的独立 HTTPS 地址，需配置 CORS |
+| `VITE_API_MODE` | `local`（默认）/ `mock` / `http` | local = 浏览器本地真实图像处理；mock = 演示模式（回放脚本）；http = 远程服务 |
+| `VITE_API_BASE_URL` | 如 `https://api.example.com` | 仅 http 模式需要，需配置 CORS |
+
+> 更新（v0.2）：本地真实识别已实现（`src/local/`，固定背景辅助模式），契约不变。详见 docs/acceptance.md。
 
 本地联调：复制 `.env.example` 为 `.env.local` 填写（不要提交真实地址以外的敏感信息；**任何模型密钥都不得进入前端**）。
 

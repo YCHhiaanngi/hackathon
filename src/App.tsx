@@ -21,6 +21,7 @@ const CAMERA_STATUS_TEXT: Record<string, string> = {
 const PHASE_TEXT: Record<Phase, string> = {
   idle: '未启动',
   awaiting_permission: '等待授权',
+  preparing: '背景校准',
   searching: '寻找目标',
   adjusting: '调整位置',
   hold_steady: '保持稳定',
@@ -28,6 +29,12 @@ const PHASE_TEXT: Record<Phase, string> = {
   announced: '结果已播报',
   paused: '已暂停',
   error: '错误',
+};
+
+const MODE_BADGE: Record<string, { text: string; className: string }> = {
+  mock: { text: '演示模式（模拟数据）', className: 'mode-badge mock' },
+  local: { text: '真实模式（本地图像处理）', className: 'mode-badge real' },
+  http: { text: '真实模式（远程服务）', className: 'mode-badge real' },
 };
 
 // 引擎是页面级单例：模块级创建，避免 StrictMode 双渲染导致的重复全局监听。
@@ -45,8 +52,8 @@ export default function App() {
         <div className="header-status">
           <span className={`camera-dot camera-${snap.cameraStatus}`} aria-hidden="true" />
           <span>摄像头：{CAMERA_STATUS_TEXT[snap.cameraStatus] ?? snap.cameraStatus}</span>
-          <span className={snap.isMock ? 'mode-badge mock' : 'mode-badge real'}>
-            {snap.isMock ? '演示模式（模拟数据）' : '真实模式'}
+          <span className={MODE_BADGE[snap.apiMode]?.className ?? 'mode-badge'}>
+            {MODE_BADGE[snap.apiMode]?.text ?? snap.apiMode}
           </span>
           <span className="phase-badge">{PHASE_TEXT[snap.phase]}</span>
           {snap.serviceDown && <span className="service-down">定位服务异常，重试中</span>}
@@ -64,6 +71,8 @@ export default function App() {
         <SidePanel
           guidanceText={snap.guidanceText}
           calibratingStep={snap.calibratingStep}
+          phase={snap.phase}
+          baselineProgress={snap.baselineProgress}
           result={snap.result}
           resultStale={snap.resultStale}
           history={snap.history}

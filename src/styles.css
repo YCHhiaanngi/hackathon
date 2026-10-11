@@ -242,6 +242,21 @@ body {
   font-size: 14px;
 }
 
+.baseline-progress {
+  margin-top: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #0b0f13;
+  border: 1px solid var(--panel-border);
+  overflow: hidden;
+}
+
+.baseline-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
 .result-body .result-main {
   display: flex;
   align-items: center;

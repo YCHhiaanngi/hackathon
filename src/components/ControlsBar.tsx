@@ -12,7 +12,7 @@ interface Props {
   onRepeat: () => void;
 }
 
-const RUNNING_PHASES: Phase[] = ['searching', 'adjusting', 'hold_steady', 'recognizing', 'announced'];
+const RUNNING_PHASES: Phase[] = ['preparing', 'searching', 'adjusting', 'hold_steady', 'recognizing', 'announced'];
 
 export function ControlsBar({ phase, canRepeat, onStart, onPause, onResume, onStop, onRepeat }: Props) {
   const running = RUNNING_PHASES.includes(phase);

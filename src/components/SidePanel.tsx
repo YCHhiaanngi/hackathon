@@ -1,11 +1,14 @@
 // 右侧面板：当前引导、识别结果、最近结果。
 // 引导文字使用 role="status"（aria-live polite），只在状态变化时更新，不随视频刷新。
 
-import type { AnnouncedResult, HistoryItem } from '../guidance/engine';
+import type { AnnouncedResult, HistoryItem, Phase } from '../guidance/engine';
 
 interface Props {
   guidanceText: string;
   calibratingStep: 'right' | 'up' | null;
+  phase: Phase;
+  /** 本地模式基准背景采集进度 0~1。 */
+  baselineProgress: number;
   result: AnnouncedResult | null;
   resultStale: boolean;
   history: HistoryItem[];
@@ -39,7 +42,7 @@ function formatTime(t: number): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-export function SidePanel({ guidanceText, calibratingStep, result, resultStale, history }: Props) {
+export function SidePanel({ guidanceText, calibratingStep, phase, baselineProgress, result, resultStale, history }: Props) {
   return (
     <aside className="side-panel">
       <section className="guidance-card" aria-label="当前引导">
@@ -47,6 +50,14 @@ export function SidePanel({ guidanceText, calibratingStep, result, resultStale, 
         <p className="guidance-text" role="status">
           {guidanceText}
         </p>
+        {phase === 'preparing' && (
+          <div className="baseline-progress" aria-hidden="true">
+            <div
+              className="baseline-progress-fill"
+              style={{ width: `${Math.round(baselineProgress * 100)}%` }}
+            />
+          </div>
+        )}
         {calibratingStep && (
           <p className="calibrating-hint">方向校准中（{calibratingStep === 'right' ? '第 1 步，共 2 步' : '第 2 步，共 2 步'}）</p>
         )}

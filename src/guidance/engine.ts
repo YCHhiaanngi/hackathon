@@ -2,7 +2,8 @@
 // 页面组件只读快照、调用 start/pause/resume/stop/repeat 等动作，不直接碰网络与坐标换算。
 
 import { CONFIG } from '../config';
-import { locateTarget, recognizeColor } from '../api/client';
+import type { ApiMode } from '../config';
+import { getLocalVisionStatus, locateTarget, recognizeColor, restartLocalBaseline } from '../api/client';
 import { ApiError } from '../shared/types';
 import type { ColorResponse, LocateResponse, TargetBox, TargetState } from '../shared/types';
 import { CameraError, CameraSession } from '../camera/cameraSession';
@@ -26,6 +27,7 @@ import type { MockScenarioId } from '../api/mockScenario';
 export type Phase =
   | 'idle' // 未启动
   | 'awaiting_permission' // 等待授权
+  | 'preparing' // 背景校准（本地模式采集基准背景）
   | 'searching' // 寻找目标
   | 'adjusting' // 调整位置（含校准）
   | 'hold_steady' // 保持稳定
@@ -55,7 +57,10 @@ export interface EngineSnapshot {
   guidanceText: string;
   cameraStatus: CameraStatus;
   cameraErrorKind: CameraErrorKind | null;
+  apiMode: ApiMode;
   isMock: boolean;
+  /** 本地模式基准背景采集进度 0~1。 */
+  baselineProgress: number;
   mockScenario: MockScenarioId;
   degraded: boolean;
   calibrated: boolean;
@@ -179,7 +184,9 @@ export class GuidanceEngine {
       guidanceText,
       cameraStatus,
       cameraErrorKind: null,
+      apiMode: CONFIG.apiMode,
       isMock: CONFIG.apiMode === 'mock',
+      baselineProgress: 0,
       mockScenario: 'normal',
       degraded: false,
       calibrated: false,
@@ -231,10 +238,16 @@ export class GuidanceEngine {
     }
 
     this.snapshot = { ...this.snapshot, cameraStatus: 'ready' };
-    const intro = CONFIG.apiMode === 'mock' ? `${MSG.intro}${MSG.introMockSuffix}` : MSG.intro;
-    this.say(intro);
-    this.setPhase('searching');
     this.sampling = true;
+    if (CONFIG.apiMode === 'local') {
+      // 本地真实模式：先采集基准背景，再开始引导。
+      this.say(MSG.prepareBackground);
+      this.setPhase('preparing');
+    } else {
+      const intro = CONFIG.apiMode === 'mock' ? `${MSG.intro}${MSG.introMockSuffix}` : MSG.intro;
+      this.say(intro);
+      this.setPhase('searching');
+    }
     this.startLoop();
   }
 
@@ -423,6 +436,37 @@ export class GuidanceEngine {
       return;
     }
 
+    // 本地模式：基准背景未就绪或失效时，只做背景校准，不进入目标引导。
+    if (CONFIG.apiMode === 'local' && this.sessionId) {
+      const status = getLocalVisionStatus(this.sessionId);
+      if (status) {
+        if (status.baselineInvalid) {
+          // 背景明显变化（摄像头移动/光照剧变）：提示并重新采集基准。
+          restartLocalBaseline(this.sessionId);
+          this.resetStability();
+          this.snapshot = { ...this.snapshot, baselineProgress: 0, lastBox: null };
+          this.setPhase('preparing');
+          this.say(MSG.backgroundInvalid);
+          this.emit();
+          return;
+        }
+        if (!status.baselineReady) {
+          if (status.baselineProgress !== this.snapshot.baselineProgress) {
+            this.snapshot = { ...this.snapshot, baselineProgress: status.baselineProgress };
+          }
+          this.setGuidanceText(MSG.preparingBackground);
+          this.setPhase('preparing');
+          this.emit();
+          return;
+        }
+        if (this.snapshot.phase === 'preparing') {
+          this.snapshot = { ...this.snapshot, baselineProgress: 1 };
+          this.say(MSG.backgroundReady);
+          this.setPhase('searching');
+        }
+      }
+    }
+
     // 校准进行中：优先观察校准，其它引导暂停。
     if (this.calibrator.running) {
       if (res.targetState !== 'single' || !res.targetBox) {
@@ -465,6 +509,18 @@ export class GuidanceEngine {
   }
 
   private applyLocateGuidance(res: LocateResponse): void {
+    // 暗光/反光与目标有无无关，优先提示。
+    if (res.quality === 'too_dark') {
+      this.setPhase('adjusting');
+      this.say(MSG.tooDark);
+      return;
+    }
+    if (res.quality === 'glare') {
+      this.setPhase('adjusting');
+      this.say(MSG.glare);
+      return;
+    }
+
     switch (res.targetState) {
       case 'none':
         this.setPhase('searching');
@@ -494,17 +550,7 @@ export class GuidanceEngine {
       return;
     }
 
-    // 画面质量优先于位置调整。
-    if (res.quality === 'too_dark') {
-      this.setPhase('adjusting');
-      this.say(MSG.tooDark);
-      return;
-    }
-    if (res.quality === 'glare') {
-      this.setPhase('adjusting');
-      this.say(MSG.glare);
-      return;
-    }
+    // 明显移动优先于位置调整（暗光/反光已在上方处理）。
     if (res.quality === 'blurred') {
       this.setPhase('adjusting');
       this.say(MSG.blurred);

@@ -1,5 +1,5 @@
 // 前端统一的能力适配层：页面组件只允许调用这里的两个函数。
-// 真实服务与 Mock 返回完全相同的数据结构，由 CONFIG.apiMode 切换。
+// local / http / mock 三种模式返回完全相同的数据结构，由 CONFIG.apiMode 切换。
 // 真实接口失败时不会静默降级到 Mock。
 
 import { CONFIG } from '../config';
@@ -13,6 +13,15 @@ import type {
 import { postImageJson } from './http';
 import { mockLocateTarget } from './mockLocate';
 import { mockRecognizeColor } from './mockColor';
+import {
+  getLocalVisionStatus,
+  localLocateTarget,
+  localRecognizeColor,
+  restartLocalBaseline,
+} from '../local/localVision';
+
+// 本地模式的状态与控制（仅 local 模式有效，其余模式返回 null / 无操作）。
+export { getLocalVisionStatus, restartLocalBaseline };
 
 const TARGET_STATES = ['none', 'single', 'multiple', 'uncertain'];
 const QUALITIES = ['ok', 'too_dark', 'blurred', 'glare', 'unknown'];
@@ -96,6 +105,9 @@ export async function locateTarget(req: LocateRequest): Promise<LocateResponse> 
   if (CONFIG.apiMode === 'mock') {
     return mockLocateTarget(req);
   }
+  if (CONFIG.apiMode === 'local') {
+    return localLocateTarget(req);
+  }
   return postImageJson<LocateResponse>(
     '/api/vision/locate',
     {
@@ -113,6 +125,9 @@ export async function locateTarget(req: LocateRequest): Promise<LocateResponse> 
 export async function recognizeColor(req: RecognizeColorRequest): Promise<ColorResponse> {
   if (CONFIG.apiMode === 'mock') {
     return mockRecognizeColor(req);
+  }
+  if (CONFIG.apiMode === 'local') {
+    return localRecognizeColor(req);
   }
   return postImageJson<ColorResponse>(
     '/api/color/analyze',
