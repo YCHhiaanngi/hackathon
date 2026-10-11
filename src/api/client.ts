@@ -17,11 +17,10 @@ import {
   getLocalVisionStatus,
   localLocateTarget,
   localRecognizeColor,
-  restartLocalBaseline,
 } from '../local/localVision';
 
-// 本地模式的状态与控制（仅 local 模式有效，其余模式返回 null / 无操作）。
-export { getLocalVisionStatus, restartLocalBaseline };
+// 本地模式的状态查询（仅 local 模式有效，其余模式返回 null）。
+export { getLocalVisionStatus };
 
 const TARGET_STATES = ['none', 'single', 'multiple', 'uncertain'];
 const QUALITIES = ['ok', 'too_dark', 'blurred', 'glare', 'unknown'];

@@ -1,7 +1,7 @@
 // 听见颜色 · 前端页面组装：顶部状态栏 + 左侧视频预览 + 右侧引导/结果 + 控制区。
 // 所有逻辑在 GuidanceEngine 中，本组件只读快照并转发用户操作。
 
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { GuidanceEngine } from './guidance/engine';
 import type { Phase } from './guidance/engine';
 import { VideoPreview } from './components/VideoPreview';
@@ -44,6 +44,27 @@ export default function App() {
   const snap = useSyncExternalStore(engine.subscribe, engine.getSnapshot);
 
   const attachVideo = useCallback((el: HTMLVideoElement | null) => engine.attachVideo(el), []);
+
+  // 全局快捷键：空格 = 开始 / 暂停 / 继续。
+  // 焦点在按钮/输入控件上时不拦截，避免与控件自身的键盘行为冲突。
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || e.repeat) return;
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('button, input, select, textarea, [role="button"]')) return;
+      e.preventDefault();
+      const phase = engine.getSnapshot().phase;
+      if (phase === 'idle' || phase === 'error') {
+        void engine.start();
+      } else if (phase === 'paused') {
+        engine.resume();
+      } else {
+        engine.pause();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   return (
     <div className="app">

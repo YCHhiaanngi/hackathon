@@ -3,7 +3,7 @@
 
 import { CONFIG } from '../config';
 import type { ApiMode } from '../config';
-import { getLocalVisionStatus, locateTarget, recognizeColor, restartLocalBaseline } from '../api/client';
+import { getLocalVisionStatus, locateTarget, recognizeColor } from '../api/client';
 import { ApiError } from '../shared/types';
 import type { ColorResponse, LocateResponse, TargetBox, TargetState } from '../shared/types';
 import { CameraError, CameraSession } from '../camera/cameraSession';
@@ -436,20 +436,11 @@ export class GuidanceEngine {
       return;
     }
 
-    // 本地模式：基准背景未就绪或失效时，只做背景校准，不进入目标引导。
+    // 本地模式：基准背景未就绪时，只做背景校准，不进入目标引导。
+    // 基准在会话内冻结（开始识别时采集）；背景剧变不再触发运行中重校准。
     if (CONFIG.apiMode === 'local' && this.sessionId) {
       const status = getLocalVisionStatus(this.sessionId);
       if (status) {
-        if (status.baselineInvalid) {
-          // 背景明显变化（摄像头移动/光照剧变）：提示并重新采集基准。
-          restartLocalBaseline(this.sessionId);
-          this.resetStability();
-          this.snapshot = { ...this.snapshot, baselineProgress: 0, lastBox: null };
-          this.setPhase('preparing');
-          this.say(MSG.backgroundInvalid);
-          this.emit();
-          return;
-        }
         if (!status.baselineReady) {
           if (status.baselineProgress !== this.snapshot.baselineProgress) {
             this.snapshot = { ...this.snapshot, baselineProgress: status.baselineProgress };

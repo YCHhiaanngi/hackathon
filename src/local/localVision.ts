@@ -22,16 +22,13 @@ export interface LocalVisionStatus {
   baselineReady: boolean;
   /** 0~1，基准背景采集进度。 */
   baselineProgress: number;
-  /** 背景明显变化（摄像头移动/光照剧变），需要重新校准。 */
-  baselineInvalid: boolean;
 }
 
 export interface LocalSession {
   sessionId: string;
   builder: BaselineBuilder;
+  /** 会话开始时采集的基准背景；会话内冻结，不做运行中失效重校准。 */
   baseline: Baseline | null;
-  invalidStreak: number;
-  baselineInvalid: boolean;
   prevRawMask: Uint8Array | null;
   prevGrid: Grid | null;
   /** 上一帧的目标框；运动估计只在目标连续存在时进行。 */
@@ -49,8 +46,6 @@ export function createLocalSession(sessionId: string): LocalSession {
     sessionId,
     builder: new BaselineBuilder(),
     baseline: null,
-    invalidStreak: 0,
-    baselineInvalid: false,
     prevRawMask: null,
     prevGrid: null,
     prevBox: null,
@@ -69,23 +64,9 @@ function getSession(sessionId: string): LocalSession {
 export function getLocalVisionStatus(sessionId: string | null): LocalVisionStatus | null {
   if (!sessionId || !current || current.sessionId !== sessionId) return null;
   return {
-    baselineReady: current.baseline !== null && !current.baselineInvalid,
+    baselineReady: current.baseline !== null,
     baselineProgress: current.baseline ? 1 : current.builder.progress,
-    baselineInvalid: current.baselineInvalid,
   };
-}
-
-/** 重新开始采集基准背景（背景失效或手动重校准时调用）。 */
-export function restartLocalBaseline(sessionId: string): void {
-  if (current && current.sessionId === sessionId) {
-    current.builder = new BaselineBuilder();
-    current.baseline = null;
-    current.baselineInvalid = false;
-    current.invalidStreak = 0;
-    current.prevRawMask = null;
-    current.prevBox = null;
-    current.frameCache.clear();
-  }
 }
 
 interface Ids {
@@ -157,10 +138,6 @@ function motionWithinBox(session: LocalSession, fg: ForegroundResult, box: Targe
 export function locateRaster(session: LocalSession, raster: Raster, ids: Ids): LocateResponse {
   const cfg = CONFIG.localVision;
 
-  if (session.baselineInvalid) {
-    return { ...noTarget(ids), targetState: 'uncertain' };
-  }
-
   // 基准背景采集中：不算定位失败，只报告“还没有目标”。
   if (!session.baseline) {
     session.builder.addFrame(raster);
@@ -172,19 +149,6 @@ export function locateRaster(session: LocalSession, raster: Raster, ids: Ids): L
   const baseline = session.baseline;
 
   const fg = extractForeground(raster, baseline);
-
-  // 背景明显变化（摄像头移动/光照剧变）：连续多帧大面积差分 → 基准失效。
-  if (fg.changedRatio > cfg.backgroundInvalidRatio) {
-    session.invalidStreak++;
-    if (session.invalidStreak >= cfg.backgroundInvalidFrames) {
-      session.baselineInvalid = true;
-    }
-  } else {
-    session.invalidStreak = 0;
-  }
-  if (session.baselineInvalid) {
-    return { ...noTarget(ids), targetState: 'uncertain' };
-  }
 
   // 全局质量（与目标有无无关）：整体变暗时用全帧亮度
   //（此时前景占比可能极高，背景亮度不可用）；局部深色衣物不会拉低全帧均值到阈值。
@@ -280,13 +244,13 @@ export function recognizeRaster(
 ): ColorResponse {
   const base = baseResponse(ids);
 
-  if (!session.baseline || session.baselineInvalid) {
+  if (!session.baseline) {
     return {
       ...base,
       status: 'uncertain',
       result: null,
       message: '背景基准不可用，暂时无法分析颜色。',
-      retryAdvice: '请把衣物移出画面，等待重新采集背景。',
+      retryAdvice: '请停止后重新开始，重新采集背景。',
     };
   }
 

@@ -84,10 +84,6 @@ export const CONFIG = {
     baselineFrames: 6,
     /** 基准采集时允许的最大帧间变化比例。 */
     baselineMaxMotion: 0.02,
-    /** 帧间变化比例超过该值 → 背景失效，需要重新校准。 */
-    backgroundInvalidRatio: 0.35,
-    /** 背景失效判定所需连续帧数。 */
-    backgroundInvalidFrames: 4,
     /** 候选区域最小面积占比（相对整幅图像）。 */
     minAreaRatio: 0.015,
     /** 低于该面积占比 → framing = too_small。 */

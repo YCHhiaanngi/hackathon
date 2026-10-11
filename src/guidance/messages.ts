@@ -36,7 +36,6 @@ export const MSG = {
     '本地识别模式。请先把手中的衣物移出画面，保持坐姿和摄像头不动，正在采集背景。',
   preparingBackground: '正在采集背景，请保持衣物不在画面中。',
   backgroundReady: '背景采集完成。请把一件衣物举到摄像头前。',
-  backgroundInvalid: '背景发生明显变化。请把衣物移出画面，保持不动，重新采集背景。',
   degradedEnter: '定位响应较慢，已切换为停稳后分析。请把衣物举稳，等待自动识别。',
   degradedExit: '定位速度已恢复，继续实时引导。',
   locateServiceDown: '定位服务暂时不可用，正在重试。',

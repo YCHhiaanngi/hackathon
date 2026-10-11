@@ -185,16 +185,20 @@ for (const c of COLOR_CASES) {
   check('目标靠边 → framing=cropped', res2.framing === 'cropped', `framing=${res2.framing}`);
 }
 
-// ---------- 9. 背景明显变化 → 基准失效 ----------
+// ---------- 9. 背景剧变不再触发重校准；场景恢复后立即可用 ----------
 {
   const s = sessionWithBaseline();
   let res = locateRaster(s, bg(), ids(s.sessionId));
-  for (let i = 0; i < CONFIG.localVision.backgroundInvalidFrames; i++) {
-    const changed = solidRaster(W, H, [90, 120, 160]); // 整个场景变了
+  for (let i = 0; i < 4; i++) {
+    const changed = solidRaster(W, H, [90, 120, 160]); // 整个场景变了（如摄像头被遮挡）
     addNoise(changed, 3);
     res = locateRaster(s, changed, ids(s.sessionId));
   }
-  check('背景剧变连续多帧 → uncertain（需重新校准）', res.targetState === 'uncertain', `state=${res.targetState}`);
+  // 大面积变化会被当成前景（受限场景），但流程不中断、不卡在重校准。
+  check('背景剧变时不中断流程', res.targetState === 'single' || res.targetState === 'multiple',
+    `state=${res.targetState}`);
+  const recovered = locateRaster(s, bg(), ids(s.sessionId));
+  check('场景恢复后基准仍有效（冻结基准）', recovered.targetState === 'none', `state=${recovered.targetState}`);
 }
 
 // ---------- 10. 掩膜与目标框属于同一帧（缓存按 frameId） ----------

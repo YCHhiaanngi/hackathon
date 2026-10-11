@@ -44,6 +44,7 @@ export function ControlsBar({ phase, canRepeat, onStart, onPause, onResume, onSt
       <button type="button" className="btn" onClick={onRepeat} disabled={!canRepeat}>
         重听
       </button>
+      <span className="shortcut-hint">快捷键：空格 = 开始 / 暂停 / 继续</span>
     </div>
   );
 }

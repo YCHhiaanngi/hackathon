@@ -334,6 +334,12 @@ body {
 .controls {
   display: flex;
   gap: 12px;
+  align-items: center;
+}
+
+.shortcut-hint {
+  color: var(--text-dim);
+  font-size: 14px;
 }
 
 .btn {
